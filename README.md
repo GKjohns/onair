@@ -1,6 +1,6 @@
 # OnAir
 
-A local recording studio for talking-to-camera videos over a live browser tab. It composites your camera
+A local recording studio, vertical-first, for talking-to-camera videos over a live browser tab. It composites your camera
 (DSLR on a Cam Link, or any webcam) with a shared tab such as Voice World, mixes mic and tab audio, and
 records the result to MP4. Everything runs in the browser and there is no backend.
 
@@ -15,47 +15,54 @@ Use desktop Chrome. Allow the camera and mic when asked.
 
 Voice World runs separately: `cd ~/Programming/Workspace/conjure && npm run dev` (http://localhost:3091).
 
-## Recording workflow
+## Recording workflow (9:16 reel by default)
 
-1. **Set up two windows.** Put Voice World in its own Chrome window and OnAir in another, side by side or on
-   a second screen. Separate windows keep both rendering. Wear headphones so the genie doesn't hear itself.
-2. **Pick sources.** Choose the Cam Link under Camera (it is auto-picked if its name contains "Cam Link" or
-   "Elgato") and your mic. Leave "Echo cancel" off when you wear headphones, since it sounds better.
-3. **Share the world.** Click **Share Voice World tab**, pick the Voice World tab, and turn on **Also share
-   tab audio**. The line under the button should say "tab audio on". Check both meters move.
-4. **Frame it.** Pick an output (16:9, 9:16 for LinkedIn vertical, 1:1, 4:5) and a layout. Use **World
-   crop** to trim edges or the wrong aspect, and **Fit** if you want the whole tab letterboxed.
-5. **Record.** Press **Space** or **R** (or the button). After a 3-2-1 countdown it records. Switch layouts
-   live, and the camera eases into place over about 400 ms. Press Space/R again to stop. The file downloads
-   as `onair-YYYY-MM-DD_HH-MM-SS.mp4`.
+1. **Open Voice World shaped for the reel.** Click **Open Voice World window**. It opens the URL in the box
+   (default `http://localhost:3091`, remembered) as a popup whose shape matches the current layout's world
+   box: 9:16 for Hook, Tall PiP, Bubble and World, and about 1:1 for Stack. Voice World's three.js camera
+   renders that shape natively, so nothing gets cropped away. Reopen it after switching to or from Stack.
+2. **Share it.** Click **Share Voice World tab**, pick the popup in the Chrome Tab list, and turn on **Also
+   share tab audio**. The line under the button should say "tab audio on". Wear headphones.
+3. **Camera and mic.** The Cam Link is auto-picked. If the DSLR is mounted on its side for true portrait,
+   set **Rotate** so you're upright. Turn on **Ask for 4K** if the Cam Link gets 4K: the full-frame Hook
+   from a landscape 1080p camera only uses a 608x1080 slice.
+4. **Frame it.** Use **Face X / Face height** to keep your face framed. Each layout remembers its own. Or
+   drag the camera on the preview. When the world is cropped, a minimap shows what's kept. Drag the world
+   or use the arrow keys to pan it, or switch to **Fit, blurred fill**. Press G for the safe-zone guide
+   (top 14%, bottom 20%, right button rail). It's only on the preview, never in the file.
+5. **Record.** Press Space or R. There's a 3-2-1 countdown, then it records. Switch layouts live, and the
+   camera eases into place over about 400 ms. Press Space/R again to stop. The file downloads as
+   `onair-YYYY-MM-DD_HH-MM-SS.mp4`.
 
-The talking points and voice commands on the right are for you only and never appear in the recording.
-Click any item to edit it. Edits are saved in this browser.
+The talking points on the right include a shot list for each beat, e.g. `[1 Hook]`, `[3 Tall PiP -> 5 World]`.
+They're yours only and never recorded. Click any item to edit it.
 
-## Hotkeys (when the OnAir window is focused)
+## Layouts and hotkeys (when the OnAir window is focused)
 
-| Key | Action |
-|---|---|
-| 1 to 6 | Corner PiP, Side by side, Stack (camera over world), Camera only, World only, Free |
-| P | Cycle the PiP corner |
-| Space / R | Start (with countdown) / stop recording; Esc cancels the countdown |
-| M | Mirror the camera |
-| L | "Kyle Johnson" name card |
+| Key | 9:16, 4:5, 1:1 | 16:9 |
+|---|---|---|
+| 1 | Hook: full-frame camera | Corner PiP |
+| 2 | Stack: world top (58%), camera below; split slider, S swaps | Side by side |
+| 3 | Tall PiP: world full-bleed, 3:4 or 9:16 camera card, lower right above the caption zone, clear of the button rail | Stack |
+| 4 | Bubble: circular camera | Camera |
+| 5 | World, for the money shot | World |
+| 6 | Free: drag the camera box, drag its corner to resize (Shift keeps its shape) | Free |
 
-In **Free** mode, drag the camera box on the preview to move it, and drag its corner to resize it.
-Hold Shift to keep its shape.
+Other keys: P cycles the card corner, arrow keys pan the world (Shift pans further), M mirrors, L toggles
+the "Kyle Johnson" name card, G toggles the guide, and Esc cancels the countdown.
 
 ## Output
 
 - Chrome records `video/mp4;codecs=avc1.640028,mp4a.40.2` (H.264 High + AAC) at 12 Mbps video and
   192 kbps audio, 30 fps. Browsers without MP4 recording fall back to WebM (VP9/Opus).
-- Camera is requested at 1920×1080, 30 fps. The output size is fixed while recording.
+- Camera is requested at 1920x1080 (or 3840x2160 with "Ask for 4K"), 30 fps. The output size is fixed while recording.
 
 ## Verify
 
 ```bash
 npm run dev &
-node scripts/verify.mjs verify-out --chrome   # fake camera/mic/tab; drops screenshots + a test recording
+node scripts/verify.mjs verify-out --chrome   # fake camera/mic + synthetic world; screenshots + a 9:16 test recording
+node scripts/verify.mjs verify-out --chrome --real-share   # same, through Chrome's real getDisplayMedia
 ```
 
 ## Known limits
@@ -68,3 +75,9 @@ node scripts/verify.mjs verify-out --chrome   # fake camera/mic/tab; drops scree
 - The recording is variable-frame-rate MP4 from MediaRecorder. Most editors handle it. If one stutters,
   convert it first: `ffmpeg -i in.mp4 -r 30 -c:v libx264 -crf 18 -c:a copy out.mp4`.
 - Changing the output size during a recording is disabled.
+- Voice World adapts to the popup's shape (its renderer has a ResizeObserver that updates the camera
+  aspect), but the vertical FOV is fixed at 65 degrees, so a 9:16 window sees only about 39 degrees side to side.
+  A cheap fix in `conjure/app/world/renderer.ts` `resize()` would widen the FOV in portrait, e.g.
+  `camera.fov = clamp(2*atan(tan(32.5deg) * 0.75 / aspect), 65, 90)`.
+- Chrome can't resize the popup after it opens, so OnAir closes it and opens a new one. That ends the
+  share, so share again.
