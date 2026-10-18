@@ -5,3 +5,5 @@ recordings
 *.webm
 .DS_Store
 verify-out
+.env
+.finish
