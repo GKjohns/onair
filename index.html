@@ -12,6 +12,7 @@
       <p class="tip">Wear headphones so the genie doesn't hear itself. When sharing, pick the Voice World window and turn on <b>Also share tab audio</b>.</p>
       <div class="recbar">
         <span id="elapsed" class="elapsed">00:00</span>
+        <button id="finishBtn" title="Captions and music for a recorded take">Finish a take</button>
         <button id="recBtn" class="rec">Record</button>
       </div>
     </header>
@@ -62,6 +63,7 @@
           </div>
           <label class="check"><input type="checkbox" id="guides" /> Safe-zone guide, preview only (G)</label>
           <div id="mimeInfo" class="muted small"></div>
+          <button id="finishLast" class="primary wide" hidden>Finish this take: captions + music</button>
         </section>
 
         <section>
@@ -111,6 +113,46 @@
 
       <aside class="panel notes" id="notes"></aside>
     </main>
+    <div id="finish" class="finish" hidden role="dialog" aria-label="Finish a take">
+      <div class="finish-top">
+        <div class="brand">Finish</div>
+        <select id="fTake" title="onair takes in ~/Downloads and recordings/"></select>
+        <label class="button ghost small fpick">Choose file...<input id="fFile" type="file" accept="video/mp4,video/webm" hidden /></label>
+        <button id="fLast" class="small" hidden></button>
+        <span class="spacer"></span>
+        <button id="fClose" class="icon" title="Close (Esc)">✕</button>
+      </div>
+      <div class="finish-body">
+        <div class="fpreview">
+          <div class="fframe"><video id="fVideo" controls playsinline preload="metadata"></video><canvas id="fOverlay"></canvas></div>
+        </div>
+        <div class="fside">
+          <section>
+            <h3>Captions</h3>
+            <label class="check"><input type="checkbox" id="fCaptions" /> Burn in captions</label>
+            <select id="fStyle"></select>
+          </section>
+          <section>
+            <h3>Music</h3>
+            <label class="check"><input type="checkbox" id="fMusic" /> Ambient bed, ducked under speech</label>
+            <select id="fMood"></select>
+            <label class="slider flevel">Level <input id="fLevel" type="range" min="16" max="34" step="1" /></label>
+            <div id="fLevelVal" class="muted small"></div>
+          </section>
+          <section>
+            <button id="fRender" class="primary wide" disabled>Render</button>
+            <div class="fprogress"><i id="fBar"></i></div>
+            <div id="fStatus" class="small"></div>
+            <div id="fOut" class="muted small"></div>
+            <div id="fResult" class="fresult"></div>
+          </section>
+          <section class="fcards-wrap">
+            <h3>Caption cards · click a time to jump, type to fix</h3>
+            <div id="fCards" class="fcards"></div>
+          </section>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

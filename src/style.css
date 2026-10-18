@@ -106,3 +106,35 @@ select.inline { width: auto; margin: 0; font-size: 12px; }
 #guideBox .g-rail { right: 0; width: 12%; top: 45%; bottom: 20%; border-right: 0; border-bottom: 0; }
 
 #mini { position: absolute; display: none; border-radius: 4px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6); outline: 1px solid rgba(255, 255, 255, 0.25); }
+
+/* ---------- Finish ---------- */
+.finish { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; flex-direction: column; }
+.finish[hidden] { display: none; }
+.finish-top { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.finish-top select { width: auto; max-width: 46ch; margin: 0; }
+.finish-top .spacer { flex: 1; }
+.button { display: inline-block; font: inherit; color: var(--text); background: #1f2330; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; text-decoration: none; }
+.button.primary { background: #2a3350; border-color: #3d4a75; }
+.button.ghost { background: transparent; }
+.button.small { padding: 3px 8px; font-size: 12px; }
+.fpick { margin: 0; }
+.finish-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 420px; }
+.fpreview { min-height: 0; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.fframe { position: relative; height: 100%; max-height: calc(100vh - 90px); aspect-ratio: 9 / 16; background: #000; border-radius: 6px; overflow: hidden; }
+.fframe video { width: 100%; height: 100%; display: block; object-fit: contain; }
+.fframe canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.fside { min-height: 0; display: flex; flex-direction: column; gap: 14px; padding: 14px; background: var(--panel); border-left: 1px solid var(--line); overflow: hidden; }
+.fside section { flex: none; }
+.fside .fcards-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.flevel { grid-template-columns: 44px 1fr; margin-top: 8px; }
+.fprogress { height: 6px; background: #0b0d12; border-radius: 3px; margin: 8px 0; overflow: hidden; }
+.fprogress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 300ms; }
+#fStatus[data-kind='error'] { color: #fca5a5; }
+#fStatus[data-kind='ok'] { color: #bbf7d0; }
+.fresult { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.fcards { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 4px; }
+.fcard { display: grid; grid-template-columns: 58px 1fr; gap: 6px; align-items: center; border-radius: 6px; padding: 2px; }
+.fcard.now { background: #2b2414; }
+.fcard.edited input { border-color: var(--accent); }
+.fcard input { font: inherit; color: var(--text); background: #0f1218; border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; width: 100%; }
+.ftime { font: 12px ui-monospace, monospace; padding: 3px 4px; color: var(--muted); }

@@ -5,6 +5,7 @@ import {
 } from './compositor'
 import { Mixer, VideoSource, download, pickMimeType, startRecorder } from './media'
 import { mountNotes } from './notes'
+import { initFinish, offerFinish } from './finish'
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
 const KEY = 'onair.scene.v2'
@@ -397,6 +398,7 @@ function beginRecording() {
     const name = download(blob, mime)
     ;(window as any).__onair.last = { size: blob.size, mime, name }
     $('mimeInfo').textContent = `Saved ${name} · ${(blob.size / 1e6).toFixed(1)} MB`
+    offerFinish(blob, name)
     stream.getVideoTracks().forEach((t) => t.stop())
     recorder = null
     setState('idle')
@@ -523,6 +525,7 @@ document.addEventListener('pointerdown', () => mixer.ctx.resume().catch(() => {}
 window.addEventListener('keydown', (e) => {
   const t = e.target as HTMLElement
   if (t.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName) || e.metaKey || e.ctrlKey || e.altKey) return
+  if (document.body.dataset.finish === 'open') return
   const k = e.key.toLowerCase()
   const step = (e.shiftKey ? 120 : 30) * (scene.W / 1080)
   const arrows: Record<string, [number, number]> = { arrowleft: [step, 0], arrowright: [-step, 0], arrowup: [0, step], arrowdown: [0, -step] }
@@ -544,5 +547,7 @@ mountNotes($('notes'))
 setSize(scene.W, scene.H)
 $('mimeInfo').textContent = `Records as ${pickMimeType() || 'browser default'} · 12 Mbps`
 ;(window as any).__onair = { scene, setLayout, setSize, layoutsFor: () => layoutsFor(scene), get state() { return state }, last: null as unknown }
+initFinish()
+$('finishLast').onclick = () => { $('finishBtn').click(); $('fLast').click() }
 listDevices().then(() => Promise.all([startCamera(), startMic()]))
 navigator.mediaDevices.addEventListener('devicechange', () => listDevices())
