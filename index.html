@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OnAir</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%23ef4444'/></svg>" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand"><span class="dot"></span>OnAir</div>
+      <p class="tip">Wear headphones so the genie doesn't hear itself. When sharing, pick the Voice World tab and turn on <b>Also share tab audio</b>.</p>
+      <div class="recbar">
+        <span id="elapsed" class="elapsed">00:00</span>
+        <button id="recBtn" class="rec">Record</button>
+      </div>
+    </header>
+
+    <main class="grid">
+      <aside class="panel controls">
+        <section>
+          <h3>Sources</h3>
+          <label>Camera <span id="camInfo" class="muted"></span>
+            <select id="camSel"></select></label>
+          <label>Mic
+            <select id="micSel"></select></label>
+          <label class="check"><input type="checkbox" id="micProc" /> Echo cancel + noise suppression</label>
+          <button id="shareBtn" class="primary wide">Share Voice World tab</button>
+          <div id="tabInfo" class="muted small"></div>
+        </section>
+
+        <section>
+          <h3>Audio</h3>
+          <div class="meter-row"><span>Mic</span><div class="meter"><i id="micMeter"></i></div>
+            <input id="micGain" type="range" min="0" max="2" step="0.05" value="1" /></div>
+          <div class="meter-row"><span>Tab</span><div class="meter"><i id="tabMeter"></i></div>
+            <input id="tabGain" type="range" min="0" max="2" step="0.05" value="1" /></div>
+        </section>
+
+        <section>
+          <h3>Output</h3>
+          <div class="seg" id="presets">
+            <button data-p="1920x1080">16:9</button>
+            <button data-p="1080x1920">9:16</button>
+            <button data-p="1080x1080">1:1</button>
+            <button data-p="1080x1350">4:5</button>
+          </div>
+          <div id="mimeInfo" class="muted small"></div>
+        </section>
+
+        <section>
+          <h3>World crop</h3>
+          <label class="slider">Top <input id="cropT" type="range" min="0" max="0.4" step="0.005" /></label>
+          <label class="slider">Bottom <input id="cropB" type="range" min="0" max="0.4" step="0.005" /></label>
+          <label class="slider">Left <input id="cropL" type="range" min="0" max="0.4" step="0.005" /></label>
+          <label class="slider">Right <input id="cropR" type="range" min="0" max="0.4" step="0.005" /></label>
+          <div class="row">
+            <div class="seg" id="fit"><button data-f="cover">Cover</button><button data-f="contain">Fit</button></div>
+            <button id="cropReset" class="ghost small">Reset</button>
+          </div>
+        </section>
+
+        <section>
+          <h3>Camera</h3>
+          <label class="slider">Zoom <input id="camZoom" type="range" min="1" max="2.5" step="0.01" /></label>
+          <label class="slider">PiP size <input id="pipScale" type="range" min="0.6" max="1.7" step="0.01" /></label>
+          <label class="check"><input type="checkbox" id="mirror" /> Mirror (M)</label>
+          <label class="check"><input type="checkbox" id="lowerThird" /> Name card "Kyle Johnson" (L)</label>
+        </section>
+      </aside>
+
+      <section class="stage">
+        <div id="stageFit" class="stage-fit">
+          <div id="frame" class="frame">
+            <canvas id="out"></canvas>
+            <div id="freebox"><span class="handle"></span></div>
+            <div id="countdown"></div>
+            <div id="recBadge">REC</div>
+          </div>
+        </div>
+        <div class="layouts" id="layouts">
+          <button data-l="pip"><kbd>1</kbd> Corner PiP</button>
+          <button data-l="side"><kbd>2</kbd> Side by side</button>
+          <button data-l="stack"><kbd>3</kbd> Stack</button>
+          <button data-l="cam"><kbd>4</kbd> Camera</button>
+          <button data-l="world"><kbd>5</kbd> World</button>
+          <button data-l="free"><kbd>6</kbd> Free</button>
+          <button id="cornerBtn"><kbd>P</kbd> Corner <span id="cornerName"></span></button>
+        </div>
+        <p class="muted small hint">Space or R: record / stop (3-2-1 first). Hotkeys only work while this window is focused. In Free mode, drag the camera box, or its corner to resize (Shift keeps the shape).</p>
+      </section>
+
+      <aside class="panel notes" id="notes"></aside>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

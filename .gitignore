@@ -1,0 +1,7 @@
+node_modules
+dist
+recordings
+*.mp4
+*.webm
+.DS_Store
+verify-out
