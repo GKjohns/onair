@@ -34,6 +34,29 @@ await fake.setContent(`<title>Fake Voice World</title><body style="margin:0;back
   c.fillStyle='#fff';c.font='bold 64px sans-serif';c.fillText('Fake Voice World '+t,60,100)},33);
   try{const a=new AudioContext();const o=a.createOscillator();o.connect(a.destination);o.start()}catch{}</script></body>`)
 
+// By default the "tab" is a synthetic 16:9 world (sky, ground, edge markers), so screenshots
+// are readable and the crop is visible. --real-share uses Chrome's real getDisplayMedia path.
+if (!args.includes('--real-share')) await context.addInitScript(() => {
+  navigator.mediaDevices.getDisplayMedia = async () => {
+    const c = Object.assign(document.createElement('canvas'), { width: 1600, height: 900 })
+    const x = c.getContext('2d')
+    let t = 0
+    setInterval(() => {
+      t++
+      const g = x.createLinearGradient(0, 0, 0, 900); g.addColorStop(0, '#f6a35b'); g.addColorStop(0.6, '#7a5cc4'); g.addColorStop(1, '#22304f')
+      x.fillStyle = g; x.fillRect(0, 0, 1600, 900)
+      x.fillStyle = '#1d3b2a'; x.fillRect(0, 620, 1600, 280)
+      x.fillStyle = '#ffe9a8'; x.beginPath(); x.arc(800, 300, 90, 0, 7); x.fill()
+      for (let i = 0; i < 24; i++) { x.fillStyle = '#ffd36b'; x.beginPath(); x.arc((i * 67 + t * 2) % 1600, 560 - ((i * 37 + t) % 400), 9, 0, 7); x.fill() }
+      x.fillStyle = '#fff'; x.font = 'bold 56px sans-serif'; x.fillText('LEFT EDGE', 30, 80); x.fillText('RIGHT EDGE', 1230, 80); x.fillText('CENTER', 690, 480)
+    }, 33)
+    const s = c.captureStream(30)
+    const a = new AudioContext(), o = a.createOscillator(), d = a.createMediaStreamDestination()
+    o.connect(d); o.start()
+    return new MediaStream([...s.getVideoTracks(), ...d.stream.getAudioTracks()])
+  }
+})
+
 const page = await context.newPage()
 const errors = []
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
@@ -42,9 +65,9 @@ await page.goto(`${URL}/?countdown=1`)
 await page.waitForTimeout(1500)
 
 const results = { errors, shots: [] }
-const shot = async (name) => {
+const shot = async (name, full = false) => {
   const p = join(out, `${name}.png`)
-  await page.screenshot({ path: p })
+  await (full ? page : page.locator('#frame')).screenshot({ path: p })
   results.shots.push(p)
 }
 
@@ -54,58 +77,107 @@ await page.waitForTimeout(1500)
 results.tabInfo = await page.textContent('#tabInfo')
 results.camInfo = await page.textContent('#camInfo')
 
-for (const preset of ['1920x1080', '1080x1920', '1080x1080', '1080x1350']) {
-  await page.click(`#presets [data-p="${preset}"]`)
-  const size = await page.$eval('#out', (c) => `${c.width}x${c.height}`)
-  if (size !== preset) errors.push(`preset ${preset} gave canvas ${size}`)
-  for (const [i, layout] of ['pip', 'side', 'stack', 'cam', 'world', 'free'].entries()) {
-    if (preset !== '1920x1080' && !['pip', 'stack', 'side'].includes(layout)) continue
-    await page.keyboard.press(String(i + 1))
-    await page.waitForTimeout(550)
-    const on = await page.$eval('#layouts .on', (b) => b.dataset.l)
-    if (on !== layout) errors.push(`hotkey ${i + 1} selected ${on}`)
-    await shot(`${preset}-${layout}`)
-  }
+const LAYOUTS = {
+  vertical: ['cam', 'stack', 'tall', 'bubble', 'world', 'free'],
+  landscape: ['pip', 'side', 'stack', 'cam', 'world', 'free'],
+}
+const pressLayout = async (set, layout, name) => {
+  await page.keyboard.press(String(LAYOUTS[set].indexOf(layout) + 1))
+  await page.waitForTimeout(550)
+  const on = await page.$eval('#layouts .on', (b) => b.dataset.l)
+  if (on !== layout) errors.push(`${name}: hotkey selected ${on}, expected ${layout}`)
+  await shot(name)
 }
 
+// Default output is the 9:16 reel
+results.defaultSize = await page.$eval('#out', (c) => `${c.width}x${c.height}`)
+if (results.defaultSize !== '1080x1920') errors.push(`default size ${results.defaultSize}`)
+for (const l of LAYOUTS.vertical) await pressLayout('vertical', l, `9x16-${l}`)
+await page.keyboard.press('2')
+await page.keyboard.press('s')
+await page.waitForTimeout(550)
+await shot('9x16-stack-swapped')
+await page.keyboard.press('s')
+await page.keyboard.press('3')
+await page.click('#cardShape [data-c="9:16"]')
+await page.waitForTimeout(550)
+await shot('9x16-tall-916card')
+await page.click('#cardShape [data-c="3:4"]')
+await page.keyboard.press('g')
+await page.waitForTimeout(200)
+await shot('9x16-tall-noguides')
+await page.keyboard.press('g')
+
+// Pan the world by dragging it, then with the arrow keys
+const focus = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__onair.scene.focus.tall)))
+const f0 = await focus()
+const cb = await page.locator('#out').boundingBox()
+await page.mouse.move(cb.x + cb.width * 0.3, cb.y + cb.height * 0.3)
+await page.mouse.down()
+await page.mouse.move(cb.x + cb.width * 0.3 + 60, cb.y + cb.height * 0.3, { steps: 6 })
+await page.mouse.up()
+const f1 = await focus()
+await page.keyboard.press('ArrowRight')
+await page.keyboard.press('ArrowRight')
+const f2 = await focus()
+results.pan = { start: f0.world.x, afterDrag: f1.world.x, afterArrows: f2.world.x }
+if (!(f1.world.x < f0.world.x && f2.world.x > f1.world.x)) errors.push('world pan did not move the focus')
+await page.waitForTimeout(200)
+await shot('9x16-tall-panned-minimap')
+await shot('ui-full-9x16', true)
+results.minimapVisible = await page.$eval('#mini', (m) => getComputedStyle(m).display !== 'none')
+
+// Popup sized to the world box
+const [popup] = await Promise.all([context.waitForEvent('page', { timeout: 5000 }).catch(() => null), page.click('#openVw')])
+if (popup) {
+  await popup.waitForLoadState('domcontentloaded').catch(() => {})
+  results.popup = { url: popup.url(), size: await popup.evaluate(() => `${innerWidth}x${innerHeight}`).catch(() => 'n/a') }
+  await popup.close()
+}
+results.openInfo = await page.textContent('#openInfo')
+
 // Free mode: drag the camera box, then resize from its corner
-await page.click('#presets [data-p="1920x1080"]')
 await page.keyboard.press('6')
 await page.waitForTimeout(500)
 const before = await page.evaluate(() => ({ ...window.__onair.scene.free }))
 const fb = await page.locator('#freebox').boundingBox()
 await page.mouse.move(fb.x + fb.width / 2, fb.y + fb.height / 2)
 await page.mouse.down()
-await page.mouse.move(fb.x + fb.width / 2 - 200, fb.y + fb.height / 2 - 120, { steps: 8 })
+await page.mouse.move(fb.x + fb.width / 2 - 80, fb.y + fb.height / 2 - 120, { steps: 8 })
 await page.mouse.up()
 await page.waitForTimeout(150)
 const hb = await page.locator('#freebox .handle').boundingBox()
 await page.mouse.move(hb.x + 8, hb.y + 8)
 await page.mouse.down()
-await page.mouse.move(hb.x + 108, hb.y + 48, { steps: 8 })
+await page.mouse.move(hb.x + 48, hb.y + 48, { steps: 8 })
 await page.mouse.up()
 const after = await page.evaluate(() => ({ ...window.__onair.scene.free }))
 results.freeDrag = { before, after }
 if (!(after.x < before.x && after.w > before.w)) errors.push('free drag/resize did not change the camera box')
-await shot('free-dragged')
+await shot('9x16-free-dragged')
 
-// Mid-transition frame, P corner cycle, lower third
+// Other sizes: 16:9 keeps the classic set, 4:5 and 1:1 use the vertical set
 await page.click('#presets [data-p="1920x1080"]')
+for (const l of LAYOUTS.landscape) await pressLayout('landscape', l, `16x9-${l}`)
+for (const p of ['1080x1350', '1080x1080']) {
+  await page.click(`#presets [data-p="${p}"]`)
+  for (const l of ['stack', 'tall', 'bubble']) await pressLayout('vertical', l, `${p}-${l}`)
+}
+
+// Back to 9:16 for the test recording, with a transition and the name card
+await page.click('#presets [data-p="1080x1920"]')
 await page.keyboard.press('1')
-await page.waitForTimeout(500)
-await page.keyboard.press('p')
-await page.waitForTimeout(180)
-await shot('transition-mid')
-await page.waitForTimeout(400)
 await page.keyboard.press('l')
+await page.waitForTimeout(150)
+await shot('9x16-transition-mid')
 await page.waitForTimeout(600)
-await shot('pip-corner-bl-lowerthird')
+await shot('9x16-hook-namecard')
 
 // Record ~3 s
 const dl = page.waitForEvent('download', { timeout: 20000 })
 await page.keyboard.press('r')
 await page.waitForTimeout(1300)
-await page.keyboard.press('2') // layout switch mid-recording
+await page.keyboard.press('3') // layout switch mid-recording
 await page.waitForTimeout(1200)
 await shot('recording')
 await page.keyboard.press('1')

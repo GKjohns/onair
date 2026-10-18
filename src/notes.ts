@@ -1,16 +1,17 @@
 // Talking points + voice commands. Kyle-only panel, never drawn on the canvas. Persisted in localStorage.
 
-const KEY = 'onair.notes.v1'
+const KEY = 'onair.notes.v2'
 
 export const DEFAULT_NOTES = {
   beats: [
-    'Hook, live: "Take me somewhere tranquil. I want to relax." Let the lake build. I never asked for a dock or fireflies.',
-    'Three waves that happened separately: personalization (feeds rank a catalog), immersion (VR, but someone builds every world by hand), generative AI (understands intent, and makes things, so there is no catalog).',
-    'Put them together: a world that knows what you want, builds it on the spot, and puts you inside it. North star: it should feel like you have a genie.',
-    'The holy-shit beat: "Make it night, and fill the sky with floating lanterns." Fifty lanterns in under two seconds.',
-    'The missing piece is you. It does not know you yet, but your assistant does. One paragraph of who you are, and "somewhere I\'d love" has something real to work from.',
-    'Get it right: learn who you are on a good day, not what you click at 1 a.m. Otherwise it is a casino with good lighting.',
-    'The ask: open Voice World in desktop Chrome and ask it to take you somewhere tranquil. Tell me where it took you.',
+    '[1 Hook] To camera, first second: "I told my laptop, take me somewhere tranquil. Watch."',
+    '[3 Tall PiP] Say the wish live: "Take me somewhere tranquil. I want to relax." Let the lake build. I never asked for a dock or fireflies.',
+    '[3 Tall PiP → 5 World] "Make it night, and fill the sky with floating lanterns." Cut to full world as they rise; hold 3 s. The holy-shit beat.',
+    '[2 Stack] Three waves that happened separately: personalization (feeds rank a catalog), immersion (VR, but someone builds every world by hand), generative AI (understands intent and makes things, so there is no catalog).',
+    '[4 Bubble] Put them together: a world that knows what you want, builds it on the spot, and puts you inside it. North star: it should feel like you have a genie.',
+    '[2 Stack, S to swap] The missing piece is you. It does not know you yet, but your assistant does. One paragraph of who you are, and "somewhere I\'d love" has something real to work from.',
+    '[1 Hook] Get it right: learn who you are on a good day, not what you click at 1 a.m. Otherwise it is a casino with good lighting.',
+    '[1 Hook → 4 Bubble] The ask: open Voice World in desktop Chrome and ask it to take you somewhere tranquil. Tell me where it took you.',
   ],
   commands: [
     'Take me somewhere tranquil. I want to relax.',

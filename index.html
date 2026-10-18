@@ -9,7 +9,7 @@
   <body>
     <header class="top">
       <div class="brand"><span class="dot"></span>OnAir</div>
-      <p class="tip">Wear headphones so the genie doesn't hear itself. When sharing, pick the Voice World tab and turn on <b>Also share tab audio</b>.</p>
+      <p class="tip">Wear headphones so the genie doesn't hear itself. When sharing, pick the Voice World window and turn on <b>Also share tab audio</b>.</p>
       <div class="recbar">
         <span id="elapsed" class="elapsed">00:00</span>
         <button id="recBtn" class="rec">Record</button>
@@ -19,14 +19,29 @@
     <main class="grid">
       <aside class="panel controls">
         <section>
-          <h3>Sources</h3>
+          <h3>Voice World</h3>
+          <input id="vwUrl" type="url" spellcheck="false" />
+          <button id="openVw" class="wide">Open Voice World window</button>
+          <div id="openInfo" class="muted small"></div>
+          <button id="shareBtn" class="primary wide">Share Voice World tab</button>
+          <div id="tabInfo" class="muted small"></div>
+        </section>
+
+        <section>
+          <h3>Camera + mic</h3>
           <label>Camera <span id="camInfo" class="muted"></span>
             <select id="camSel"></select></label>
+          <div class="row">
+            <label class="check"><input type="checkbox" id="cam4k" /> Ask for 4K</label>
+            <select id="camRotate" class="inline" title="Use when the camera is mounted on its side">
+              <option value="0">No rotation</option>
+              <option value="90">Rotate ↻ 90°</option>
+              <option value="270">Rotate ↺ 90°</option>
+            </select>
+          </div>
           <label>Mic
             <select id="micSel"></select></label>
           <label class="check"><input type="checkbox" id="micProc" /> Echo cancel + noise suppression</label>
-          <button id="shareBtn" class="primary wide">Share Voice World tab</button>
-          <div id="tabInfo" class="muted small"></div>
         </section>
 
         <section>
@@ -40,32 +55,42 @@
         <section>
           <h3>Output</h3>
           <div class="seg" id="presets">
-            <button data-p="1920x1080">16:9</button>
-            <button data-p="1080x1920">9:16</button>
-            <button data-p="1080x1080">1:1</button>
+            <button data-p="1080x1920">9:16 Reel</button>
             <button data-p="1080x1350">4:5</button>
+            <button data-p="1080x1080">1:1</button>
+            <button data-p="1920x1080">16:9</button>
           </div>
+          <label class="check"><input type="checkbox" id="guides" /> Safe-zone guide, preview only (G)</label>
           <div id="mimeInfo" class="muted small"></div>
         </section>
 
         <section>
-          <h3>World crop</h3>
-          <label class="slider">Top <input id="cropT" type="range" min="0" max="0.4" step="0.005" /></label>
-          <label class="slider">Bottom <input id="cropB" type="range" min="0" max="0.4" step="0.005" /></label>
-          <label class="slider">Left <input id="cropL" type="range" min="0" max="0.4" step="0.005" /></label>
-          <label class="slider">Right <input id="cropR" type="range" min="0" max="0.4" step="0.005" /></label>
+          <h3>Framing · <span id="layoutName"></span></h3>
+          <label class="slider">Face X <input id="faceX" type="range" min="0" max="1" step="0.005" /></label>
+          <label class="slider">Face height <input id="faceY" type="range" min="0" max="1" step="0.005" /></label>
+          <label class="slider">Cam zoom <input id="camZoom" type="range" min="1" max="2.5" step="0.01" /></label>
+          <label class="slider">Card size <input id="pipScale" type="range" min="0.6" max="1.6" step="0.01" /></label>
           <div class="row">
-            <div class="seg" id="fit"><button data-f="cover">Cover</button><button data-f="contain">Fit</button></div>
-            <button id="cropReset" class="ghost small">Reset</button>
+            <span class="muted small">Tall card</span>
+            <div class="seg" id="cardShape"><button data-c="3:4">3:4</button><button data-c="9:16">9:16</button></div>
           </div>
+          <label class="slider">Stack split <input id="split" type="range" min="0.35" max="0.75" step="0.005" /></label>
+          <label class="check"><input type="checkbox" id="swap" /> Stack: camera on top (S)</label>
+          <label class="check"><input type="checkbox" id="mirror" /> Mirror camera (M)</label>
+          <label class="check"><input type="checkbox" id="lowerThird" /> Name card "Kyle Johnson" (L)</label>
         </section>
 
         <section>
-          <h3>Camera</h3>
-          <label class="slider">Zoom <input id="camZoom" type="range" min="1" max="2.5" step="0.01" /></label>
-          <label class="slider">PiP size <input id="pipScale" type="range" min="0.6" max="1.7" step="0.01" /></label>
-          <label class="check"><input type="checkbox" id="mirror" /> Mirror (M)</label>
-          <label class="check"><input type="checkbox" id="lowerThird" /> Name card "Kyle Johnson" (L)</label>
+          <h3>World</h3>
+          <div class="row">
+            <div class="seg" id="fit"><button data-f="cover">Fill + pan</button><button data-f="blur">Fit, blurred fill</button></div>
+          </div>
+          <p class="muted small">Drag the world on the preview, or use the arrow keys, to pan it. Drag the camera to reframe it.</p>
+          <label class="slider">Trim top <input id="cropT" type="range" min="0" max="0.4" step="0.005" /></label>
+          <label class="slider">Trim bottom <input id="cropB" type="range" min="0" max="0.4" step="0.005" /></label>
+          <label class="slider">Trim left <input id="cropL" type="range" min="0" max="0.4" step="0.005" /></label>
+          <label class="slider">Trim right <input id="cropR" type="range" min="0" max="0.4" step="0.005" /></label>
+          <button id="cropReset" class="ghost small">Reset trims + pan</button>
         </section>
       </aside>
 
@@ -73,21 +98,15 @@
         <div id="stageFit" class="stage-fit">
           <div id="frame" class="frame">
             <canvas id="out"></canvas>
+            <div id="guideBox"><i class="g-top"><span>top UI</span></i><i class="g-bottom"><span>caption</span></i><i class="g-rail"></i></div>
+            <canvas id="mini" title="What the world crop keeps"></canvas>
             <div id="freebox"><span class="handle"></span></div>
             <div id="countdown"></div>
             <div id="recBadge">REC</div>
           </div>
         </div>
-        <div class="layouts" id="layouts">
-          <button data-l="pip"><kbd>1</kbd> Corner PiP</button>
-          <button data-l="side"><kbd>2</kbd> Side by side</button>
-          <button data-l="stack"><kbd>3</kbd> Stack</button>
-          <button data-l="cam"><kbd>4</kbd> Camera</button>
-          <button data-l="world"><kbd>5</kbd> World</button>
-          <button data-l="free"><kbd>6</kbd> Free</button>
-          <button id="cornerBtn"><kbd>P</kbd> Corner <span id="cornerName"></span></button>
-        </div>
-        <p class="muted small hint">Space or R: record / stop (3-2-1 first). Hotkeys only work while this window is focused. In Free mode, drag the camera box, or its corner to resize (Shift keeps the shape).</p>
+        <div class="layouts" id="layouts"></div>
+        <p class="muted small hint">Space or R: record / stop (3-2-1 first). P: card corner. Arrows: pan the world. Hotkeys work while this window is focused. In Free, drag the camera box or its corner (Shift keeps the shape).</p>
       </section>
 
       <aside class="panel notes" id="notes"></aside>
