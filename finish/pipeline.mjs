@@ -83,33 +83,94 @@ async function extractAudio(input, dir) {
   return out
 }
 
-/** Word timings from whisper-1 through the AI Gateway (Camera Shy's call, minus the clip window). */
+/** Pauses in the speech track as [start, end] seconds: chunk cut points and word trimming. */
+async function silences(audioPath) {
+  const { stderr } = await run('ffmpeg', ['-hide_banner', '-nostats', '-i', audioPath, '-af', 'silencedetect=n=-35dB:d=0.3', '-f', 'null', '-'])
+  const cuts = []
+  let open = null
+  for (const l of stderr.split('\n')) {
+    const a = /silence_start: ([\d.]+)/.exec(l)
+    const b = /silence_end: ([\d.]+)/.exec(l)
+    if (a) open = Number(a[1])
+    if (b && open != null) { cuts.push([open, Number(b[1])]); open = null }
+  }
+  return cuts
+}
+
+/**
+ * Whisper stretches a word over the pause beside it, which holds a card (and its lit word) on
+ * screen through the silence. Cut any detected pause out of a word and keep its longest part.
+ */
+function trimToSpeech(words, pauses) {
+  let trimmed = 0
+  const out = words.map((w) => {
+    let spans = [[w.startMs, w.endMs]]
+    for (const [a, b] of pauses) {
+      const pa = Math.round(a * 1000) + 60
+      const pb = Math.round(b * 1000) - 60
+      if (pb - pa < 200) continue
+      spans = spans.flatMap(([x, y]) => (pb <= x || pa >= y ? [[x, y]] : [[x, Math.min(y, pa)], [Math.max(x, pb), y]].filter(([u, v]) => v - u > 0)))
+    }
+    if (!spans.length) return w
+    const best = spans.reduce((m, sp) => (sp[1] - sp[0] > m[1] - m[0] ? sp : m))
+    if (best[1] - best[0] < 120) return w
+    if (best[0] !== w.startMs || best[1] !== w.endMs) trimmed++
+    return { ...w, startMs: best[0], endMs: best[1] }
+  })
+  return { words: out, trimmed }
+}
+
+/** Chunks of about `target` seconds, cut in the nearest pause (never shorter than 6 s). */
+function planChunks(cuts, durationSec, target = 15) {
+  const bounds = [0]
+  while (durationSec - bounds[bounds.length - 1] > target * 1.4) {
+    const want = bounds[bounds.length - 1] + target
+    const near = cuts.filter((c) => c > bounds[bounds.length - 1] + 6 && Math.abs(c - want) < target * 0.4)
+    bounds.push(near.length ? near.reduce((x, y) => (Math.abs(y - want) < Math.abs(x - want) ? y : x)) : want)
+  }
+  bounds.push(durationSec)
+  return bounds.slice(1).map((b, i) => [bounds[i], b])
+}
+
+/**
+ * Word timings from whisper-1 through the AI Gateway (Camera Shy's call). Long takes go up in
+ * ~30 s chunks cut in pauses, the clip length Camera Shy sends: on a whole 2-minute take whisper
+ * tidies speech (it dropped "kind of", "right?", "you know"), so captions stopped matching the voice.
+ */
 export async function transcribe(input, dir, durationSec) {
-  return cached(join(dir, 'words.raw.json'), async () => {
+  return cached(join(dir, 'words.v4.json'), async () => {
     if (!process.env.AI_GATEWAY_API_KEY) throw new Error('AI_GATEWAY_API_KEY is missing: copy .env.example to .env and fill it in')
     const audioPath = await extractAudio(input, dir)
-    const bytes = readFileSync(audioPath)
-    if (bytes.length > 24 * 1024 * 1024) throw new Error('Speech audio is over 24 MB (about 50 min); whisper-1 refuses files over 25 MB')
+    const pauses = await silences(audioPath)
+    const chunks = planChunks(pauses.map(([a, b]) => (a + b) / 2), durationSec)
     const { gateway } = await import('@ai-sdk/gateway')
     const { transcribe: aiTranscribe } = await import('ai')
-    const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), Math.max(60_000, durationSec * 1500))
-    try {
-      const result = await aiTranscribe({
-        model: gateway.transcription(TRANSCRIBER),
-        audio: new Uint8Array(bytes),
-        // Word granularity is the point; English named; no `prompt` (Whisper transcribes it).
-        providerOptions: { openai: { timestampGranularities: ['word'], language: 'en' } },
-        maxRetries: 1,
-        abortSignal: ctrl.signal,
-      })
-      const words = wordsFromSegments(result.segments)
-      const check = checkWords(words, durationSec * 1000)
-      if (check.reject) throw new Error(`Word timings refused (${check.reject}): ${JSON.stringify(check)}`)
-      return { model: TRANSCRIBER, text: result.text, words, check, costUsd: +(durationSec / 60 * WHISPER_USD_PER_MIN).toFixed(4) }
-    } finally {
-      clearTimeout(timer)
-    }
+    const results = await Promise.all(chunks.map(async ([a, b], i) => {
+      const part = join(dir, `speech-${i}.m4a`)
+      await run('ffmpeg', ['-hide_banner', '-y', '-v', 'error', '-i', audioPath, '-ss', a.toFixed(3), '-to', b.toFixed(3), '-c:a', 'aac', '-b:a', '64k', part])
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 90_000)
+      try {
+        const r = await aiTranscribe({
+          model: gateway.transcription(TRANSCRIBER),
+          audio: new Uint8Array(readFileSync(part)),
+          // Word granularity is the point; English named; no `prompt` (Whisper transcribes it).
+          providerOptions: { openai: { timestampGranularities: ['word'], language: 'en' } },
+          maxRetries: 1,
+          abortSignal: ctrl.signal,
+        })
+        const words = wordsFromSegments(r.segments).map((w) => ({ ...w, startMs: w.startMs + Math.round(a * 1000), endMs: w.endMs + Math.round(a * 1000) }))
+        return { text: r.text.trim(), words }
+      } finally {
+        clearTimeout(timer)
+      }
+    }))
+    const { words, trimmed } = trimToSpeech(results.flatMap((r) => r.words), pauses)
+    // A chunk cut mid-sentence ends in a period whisper invented; drop it when the next chunk carries on in lower case.
+    const text = results.map((r, i) => (/^[a-z]/.test(results[i + 1]?.text ?? '') ? r.text.replace(/[.]$/, '') : r.text)).join(' ')
+    const check = checkWords(words, durationSec * 1000)
+    if (check.reject) throw new Error(`Word timings refused (${check.reject}): ${JSON.stringify(check)}`)
+    return { model: TRANSCRIBER, chunks, text, words, check: { ...check, trimmed }, costUsd: +(durationSec / 60 * WHISPER_USD_PER_MIN).toFixed(4) }
   })
 }
 
@@ -173,8 +234,12 @@ export async function analyze(input, { style = DEFAULTS.style, onProgress = noop
   if (!meta.hasAudio) throw new Error('This take has no audio track')
   const dir = workDirFor(input)
   onProgress({ stage: 'transcribe', pct: 0, msg: 'Transcribing (whisper-1, word timings)' })
-  const [tx, layout] = await Promise.all([transcribe(input, dir, meta.durationSec), detectLayout(input, dir, meta)])
-  onProgress({ stage: 'transcribe', pct: 1, msg: `${tx.words.length} words` })
+  const [tx, layout] = await Promise.all([
+    // A take with no usable speech still gets music and loudness, just no captions.
+    transcribe(input, dir, meta.durationSec).catch((e) => ({ model: TRANSCRIBER, text: '', words: [], costUsd: 0, error: String(e?.message ?? e) })),
+    detectLayout(input, dir, meta),
+  ])
+  onProgress({ stage: 'transcribe', pct: 1, msg: tx.error ? `No captions: ${tx.error}` : `${tx.words.length} words` })
   const phrases = buildPhrases(tx.words, style, layout, tx.text)
   return { input, dir, meta, transcript: tx, layout, phrases }
 }
