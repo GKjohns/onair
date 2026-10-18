@@ -2,14 +2,18 @@
 
 A local recording studio, vertical-first, for talking-to-camera videos over a live browser tab. It composites your camera
 (DSLR on a Cam Link, or any webcam) with a shared tab such as Voice World, mixes mic and tab audio, and
-records the result to MP4. Everything runs in the browser and there is no backend.
+records the result to MP4. Recording runs entirely in the browser. **Finish** (captions + music) runs on a
+small API inside the Vite dev server, using local ffmpeg and the AI Gateway.
 
 ## Run
 
 ```bash
 npm install
-npm run dev        # http://localhost:3094
+cp .env.example .env   # AI_GATEWAY_API_KEY, only needed for Finish captions
+npm run dev            # http://localhost:3094
 ```
+
+Finish also needs `ffmpeg`/`ffprobe` on the PATH and Playwright's Chromium (`npx playwright install chromium`).
 
 Use desktop Chrome. Allow the camera and mic when asked.
 
@@ -36,6 +40,52 @@ Voice World runs separately: `cd ~/Programming/Workspace/conjure && npm run dev`
 
 The talking points on the right include a shot list for each beat, e.g. `[1 Hook]`, `[3 Tall PiP -> 5 World]`.
 They're yours only and never recorded. Click any item to edit it.
+
+## Finish: captions + music
+
+After a take stops, click **Finish this take** (under Output), or click **Finish a take** in the top bar and
+pick any `onair-*.mp4` from ~/Downloads (or **Choose file...**). Then:
+
+1. It transcribes with word timings (first run about 10 s for 2 minutes, about $0.006 per minute) and shows
+   the caption cards. The preview draws them over the video with the same code the render uses.
+2. Fix words by typing in a card. Click a card's time to jump to it.
+3. Choose a caption style (Pop, Plate, Clean), a music mood (Wonder, Calm, Warm) and how far under the
+   voice the music sits (default 24 dB, ducked further while anyone talks).
+4. **Render**. The file lands next to the source as `<take>-final.mp4`, with `<take>-final.transcript.json`
+   beside it. Click **Download** to get a copy.
+
+Same pipeline from the terminal:
+
+```bash
+npm run finish -- ~/Downloads/onair-2026-10-18_15-40-51.mp4                # pop captions, wonder music, -24 dB
+npm run finish -- take.mp4 --style clean --mood calm --music-db 28 --out x.mp4
+npm run finish -- take.mp4 --no-music        # or --no-captions; --analyze prints the cards only
+```
+
+How it works (`finish/`):
+
+- **Transcription** works like Camera Shy: `openai/whisper-1` through the AI Gateway, `timestampGranularities:
+  ['word']`, `language: 'en'`, no prompt. The take goes up in about 15 s chunks cut in pauses. On a whole
+  2-minute file, whisper drops "you know", "kind of" and "right?", so the captions stop matching the voice.
+  Zero-length words get up to 280 ms. A word stretched across a detected pause is trimmed to the speech.
+  Punctuation comes back from whisper's text. Common mis-hearings of Voice World, Claude, Kyle and Monument
+  Labs are fixed.
+- **Cards** use Camera Shy's cadence. A card breaks at 4 words (5 for Clean), 1.6 s, a 500 ms pause or a
+  sentence end. It stays 250 ms past its last word, never past the next card. The spoken word lights up
+  `#facc15`. Type is system-ui 800 at `min(h * 0.046, w * 0.066)`, centered, wrapped at 86% width.
+- **Placement**: in Stack, the seam between the world and the camera is detected from the frames, and the
+  cards sit just above it so they never cover your face. Otherwise the last line's baseline is at 76.5%
+  height, which keeps it above the Reels bottom 20%.
+- **Music** is synthesized in `finish/music.mjs`: a sine-partial pad and a sparse bell arpeggio, through a
+  delay and reverb. No samples, so there's nothing to license. It's set relative to the measured voice
+  loudness, `sidechaincompress`-ducked under speech, with a 2 s fade in and a 3 s fade out. The whole mix is
+  then two-pass `loudnorm` to -14 LUFS / -1.5 dBTP.
+- **Render**: each caption state becomes a transparent PNG drawn by headless Chromium with
+  `finish/captions.js`. An ffconcat list on integer milliseconds goes to `overlay`, then libx264 High,
+  30 fps CFR, AAC 192k / 48 kHz, `+faststart`. The Homebrew ffmpeg has no libass or drawtext, which is why
+  the captions are images. Every step caches in `.finish/<take>-<hash>/`, so a rerun only re-encodes.
+
+Verify the panel end to end (dev server running): `node scripts/verify-finish.mjs <short-take.mp4> verify-out/finish`.
 
 ## Layouts and hotkeys (when the OnAir window is focused)
 
@@ -66,6 +116,11 @@ node scripts/verify.mjs verify-out --chrome --real-share   # same, through Chrom
 ```
 
 ## Known limits
+
+- Finish captions everyone the mic and tab heard, so the genie's lines get captions too, and Voice World
+  already shows them on screen. Delete those cards if you don't want them. Whisper can still tidy a filler
+  word or two, and a rerun can differ slightly. Seam detection only knows Stack: in Tall PiP or Bubble,
+  check the preview, because the card can overlap the camera card.
 
 - Hotkeys only work while OnAir has focus. While you talk to Voice World, its window has focus, so
   switch layouts with a click on OnAir (or on a second screen) between beats.
